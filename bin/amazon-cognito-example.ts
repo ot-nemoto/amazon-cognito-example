@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { NtaDigitalInfraStack } from '../lib/nta-digital-infra-stack';
+import { AmazonCognitoExampleStack } from '../lib/amazon-cognito-example-stack';
 
 const app = new cdk.App();
-new NtaDigitalInfraStack(app, 'NtaDigitalInfraStack', {
+new AmazonCognitoExampleStack(app, 'AmazonCognitoExampleStack', {
   /* If you don't specify 'env', this stack will be environment-agnostic.
    * Account/Region-dependent features and context lookups will not work,
    * but a single synthesized template can be deployed anywhere. */

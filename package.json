@@ -1,8 +1,8 @@
 {
-  "name": "nta-digital-infra",
+  "name": "amazon-cognito-example",
   "version": "0.1.0",
   "bin": {
-    "nta-digital-infra": "bin/nta-digital-infra.js"
+    "amazon-cognito-example": "bin/amazon-cognito-example.js"
   },
   "scripts": {
     "build": "tsc",
