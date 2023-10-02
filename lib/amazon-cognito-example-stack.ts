@@ -1,12 +1,13 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as fs from 'fs';
 
 const app = new cdk.App();
 const userPoolName = app.node.tryGetContext("user_pool_name") || 'example-user-pool';
 const supported_idp = [
   'okta',
+  'kuroco',
 ];
 
 export class AmazonCognitoExampleStack extends cdk.Stack {
@@ -57,14 +58,21 @@ export class AmazonCognitoExampleStack extends cdk.Stack {
       },
     });
 
-    // UserPoolIdentityProviderSaml
     supported_idp.forEach(idpName => {
-      if (!app.node.tryGetContext(`${idpName}-metadata-url`)) {
+      // UserPoolIdentityProviderSamlMetadata
+      let metadata = undefined;
+      if (app.node.tryGetContext(`${idpName}-metadata-url`)) {
+        metadata = cognito.UserPoolIdentityProviderSamlMetadata.url(app.node.tryGetContext(`${idpName}-metadata-url`));
+      } else if (app.node.tryGetContext(`${idpName}-metadata-file`)) {
+        let fileContent = fs.readFileSync(app.node.tryGetContext(`${idpName}-metadata-file`), 'utf8');
+        metadata = cognito.UserPoolIdentityProviderSamlMetadata.file(fileContent);
+      } else {
         return;
       }
 
-      const userPoolIdentityProviderSaml = new cognito.UserPoolIdentityProviderSaml(this, `UserPoolIdentityProviderSaml_${idpName}`, {
-        metadata: cognito.UserPoolIdentityProviderSamlMetadata.url(app.node.tryGetContext(`${idpName}-metadata-url`)),
+      // UserPoolIdentityProviderSaml
+      let userPoolIdentityProviderSaml = new cognito.UserPoolIdentityProviderSaml(this, `UserPoolIdentityProviderSaml_${idpName}`, {
+        metadata: metadata,
         userPool: userPool,
         attributeMapping: {
           email: cognito.ProviderAttribute.other('email'),
@@ -76,7 +84,8 @@ export class AmazonCognitoExampleStack extends cdk.Stack {
         name: `${idpName}`,
       });
 
-      const userPoolClient = userPool.addClient(`Client_${idpName}`, {
+      // UserPoolClient
+      let userPoolClient = userPool.addClient(`Client_${idpName}`, {
         userPoolClientName: `${userPoolName}-${idpName}-client`,
         generateSecret: false,
         enableTokenRevocation: true,
