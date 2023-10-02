@@ -3,65 +3,111 @@ import { Construct } from 'constructs';
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 
+const app = new cdk.App();
+const userPoolName = app.node.tryGetContext("user_pool_name") || 'example-user-pool';
+const supported_idp = [
+  'okta',
+];
+
 export class AmazonCognitoExampleStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
     // UserPool
-    const UserPool = new cognito.UserPool(this, 'UserPool', {
-      userPoolName: 'sample-users',
-      selfSignUpEnabled: true,
+    const userPool = new cognito.UserPool(this, 'UserPool', {
+      userPoolName: userPoolName,
+      selfSignUpEnabled: false,
       signInAliases: { email: true },
-      // standardAttributes: {
-      //   givenName: { required: true },
-      //   familyName: { required: true },
-      // },
-      // customAttributes: { // カスタム属性設定
-      //   'family_name_kana': new cognito.StringAttribute({ minLen: 1, maxLen: 256, mutable: true }),
-      //   'given_name_kana': new cognito.StringAttribute({ minLen: 1, maxLen: 256, mutable: true }),
-      // },
-      // passwordPolicy: { // 設定しない場合はコンソールの場合と同じデフォルト設定
-      //   minLength: 10,
-      //   requireLowercase: false,
-      //   requireUppercase: false,
-      //   requireDigits: false,
-      //   requireSymbols: false,
-      //   tempPasswordValidity: cdk.Duration.days(7),
-      // },
-      // lambdaTriggers: {
-      //   postConfirmation: sample_fn, // 今回は登録確認後のトリガー設定　他も有り
-      // },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    /*
-    // Application Client
-    UserPool.addClient('Application', {
-      userPoolClientName: 'application', // クライアント名
-      generateSecret: false, // シークレットの作成設定
-      enableTokenRevocation: true, // 高度な認証設定のトークンの取り消しを有効化
-      preventUserExistenceErrors: true, // 高度な認証設定のユーザー存在エラーの防止を有効化
+    // UserPoolDomain
+    const userPoolDomain = userPool.addDomain('Domain', {
+      cognitoDomain: {
+        domainPrefix: userPoolName,
+      },
+    });
+
+    // UserPoolClient
+    const userPoolClient = userPool.addClient('Client', {
+      userPoolClientName: `${userPoolName}-client`,
+      generateSecret: false,
+      enableTokenRevocation: true,
+      preventUserExistenceErrors: true,
+      authFlows: {
+        custom: false,
+        userPassword: false,
+        userSrp: true,
+      },
       oAuth: {
-        flows: { // OAuth 付与タイプ設定
-          authorizationCodeGrant: true, // 認証コード付与
-          implicitCodeGrant: true, // 暗黙的な付与
+        flows: {
+          authorizationCodeGrant: true,
+          implicitCodeGrant: false,
         },
-        callbackUrls: [ // 許可されているコールバックURL設定
-          'https://sample.com/app',
-          'https://oauth.pstmn.io/v1/callback', // ポストマンアプリ用
+        callbackUrls: [
+          'https://www.google.com/',
         ],
-        logoutUrls: [ // 許可されているサインアウトURL設定
-          'https://sample.com/app',
-        ],
-        scopes: [ // カスタムスコープ
+        logoutUrls: [],
+        scopes: [
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.OPENID,
           cognito.OAuthScope.PHONE,
-          cognito.OAuthScope.PROFILE,
         ],
-      }
+      },
     });
-    */
+
+    // UserPoolIdentityProviderSaml
+    supported_idp.forEach(idpName => {
+      if (!app.node.tryGetContext(`${idpName}-metadata-url`)) {
+        return;
+      }
+
+      const userPoolIdentityProviderSaml = new cognito.UserPoolIdentityProviderSaml(this, `UserPoolIdentityProviderSaml_${idpName}`, {
+        metadata: cognito.UserPoolIdentityProviderSamlMetadata.url(app.node.tryGetContext(`${idpName}-metadata-url`)),
+        userPool: userPool,
+        attributeMapping: {
+          email: cognito.ProviderAttribute.other('email'),
+          familyName: cognito.ProviderAttribute.other('lastname'),
+          givenName: cognito.ProviderAttribute.other('firstname'),
+        },
+        identifiers: [`${idpName}`],
+        idpSignout: false,
+        name: `${idpName}`,
+      });
+
+      const userPoolClient = userPool.addClient(`Client_${idpName}`, {
+        userPoolClientName: `${userPoolName}-${idpName}-client`,
+        generateSecret: false,
+        enableTokenRevocation: true,
+        preventUserExistenceErrors: true,
+        authFlows: {
+          custom: false,
+          userPassword: false,
+          userSrp: true,
+        },
+        oAuth: {
+          flows: {
+            authorizationCodeGrant: true,
+            implicitCodeGrant: false,
+          },
+          callbackUrls: [
+            'https://www.google.com/',
+          ],
+          logoutUrls: [],
+          scopes: [
+            cognito.OAuthScope.EMAIL,
+            cognito.OAuthScope.OPENID,
+            cognito.OAuthScope.PHONE,
+          ],
+        },
+        supportedIdentityProviders: [
+          cognito.UserPoolClientIdentityProvider.COGNITO,
+          cognito.UserPoolClientIdentityProvider.custom(`${idpName}`),
+        ],
+      });
+
+      userPoolClient.node.addDependency(userPoolIdentityProviderSaml);
+    });
   }
 }

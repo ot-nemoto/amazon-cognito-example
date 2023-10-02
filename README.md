@@ -27,6 +27,13 @@ cdk bootstrap
 cdk deploy
 ```
 
+### parameter
+
+|KEY|DESCRIPTION|DEFAULT|
+|--|--|--|
+|user_pool_name|UserPool名を指定する|`example-user-pool`|
+|okta-metadata-url|Okta(SAML Idp)のメタデータURLを指定する|-|
+
 ## Destroy
 
 - Destroy the stack(s) named STACKS
