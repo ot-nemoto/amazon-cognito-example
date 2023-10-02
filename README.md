@@ -1,5 +1,10 @@
 # amazon-cognito-example
 
+- Amazon Cognito で外部プロバイダーと接続するサンプル
+- 対応プロバイダ
+  - Okta
+  - Kuroco
+
 ## Environment
 
 ```sh
